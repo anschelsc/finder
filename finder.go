@@ -28,6 +28,10 @@ func (m *matcher) run() {
 		} else {
 			spos := 0
 			for {
+				if spos == len(m.f.s)-1 {
+					m.mid.CloseWithError(Found)
+					return
+				}
 				b, err = m.in.ReadByte()
 				if err != nil {
 					m.mid.CloseWithError(err)
@@ -38,10 +42,6 @@ func (m *matcher) run() {
 					m.mid.Write(m.f.s[:spos+1])
 					m.wb(b)
 					break
-				}
-				if next == len(m.f.s)-1 {
-					m.mid.CloseWithError(Found)
-					return
 				}
 				m.mid.Write(m.f.s[:spos+1-next]) // nop if spos + 1 == next
 				spos = next
@@ -75,6 +75,9 @@ type Finder struct {
 // Compile returns a persistent *Finder that can be passed to NewReader
 // multiple times. Use this if you will look for the same string more than once.
 func Compile(s []byte) *Finder {
+	if len(s) == 1 {
+		return &Finder{nil, s}
+	}
 	inter := make([][]int, len(s)-1)
 	// inter holds, for each char in s, where else you might be
 	inter[0] = []int{-1, 0}
