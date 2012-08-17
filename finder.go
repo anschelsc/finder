@@ -5,8 +5,6 @@ import (
 	"io"
 )
 
-const bufsize = 100
-
 var Found = errors.New("Found it!")
 
 type matcher struct {
@@ -46,12 +44,15 @@ func (m *matcher) run() {
 					return
 				}
 				m.mid.Write(m.f.s[:spos+1-next]) // nop if spos + 1 == next
-				next = spos
+				spos = next
 			}
 		}
 	}
 }
 
+// NewReader returns an io.Reader that will read from r until it either
+// encounters an error (which will be passed on) or finds the sequence known by
+// f, in which case it returns Found.
 func NewReader(f *Finder, r io.ByteReader) io.Reader {
 	m := &matcher{in: r, f: f}
 	m.out, m.mid = io.Pipe()
@@ -59,16 +60,25 @@ func NewReader(f *Finder, r io.ByteReader) io.Reader {
 	return m.out
 }
 
+// NewReaderBytes is like NewReader but Compiles b for you. If you will likely
+// search for the same []byte again, use Compile directly.
+func NewReaderBytes(b []byte, r io.ByteReader) io.Reader {
+	return NewReader(Compile(b), r)
+}
+
+// A Finder contains the information necessary to find a []byte in linear time.
 type Finder struct {
 	next []map[byte]int
 	s    []byte
 }
 
+// Compile returns a persistent *Finder that can be passed to NewReader
+// multiple times. Use this if you will look for the same string more than once.
 func Compile(s []byte) *Finder {
 	inter := make([][]int, len(s)-1)
 	// inter holds, for each char in s, where else you might be
 	inter[0] = []int{-1, 0}
-	for i := 1; i != len(s); i++ {
+	for i := 1; i != len(inter); i++ {
 		inter[i] = []int{-1}
 		for _, pos := range inter[i-1] {
 			if s[pos+1] == s[i] {
